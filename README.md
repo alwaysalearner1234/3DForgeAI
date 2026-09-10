@@ -1,283 +1,121 @@
-# 3DForge AI — AI Generation & Backend
+# 3DForge AI
 
 > **From a simple idea to a production-ready 3D asset — automatically.**
 
-3DForge AI is an AI-powered 3D asset generation and preparation platform that transforms a **text prompt or reference image** into a usable 3D asset.
+3DForge AI is an AI-powered 3D asset generation and preparation platform that transforms a **text prompt or reference image into a usable 3D asset**.
 
-This repository contains **Lidiya's backend module**, responsible for the first stage of the 3DForge AI pipeline:
+The platform combines AI-based 3D generation with an automated processing pipeline to reduce the time and technical expertise required to create high-quality 3D assets.
+
+The backend provides the API infrastructure responsible for receiving user input, communicating with the 3D generation service, managing generation jobs, handling model files, and delivering generated assets to the downstream processing pipeline.
+
+---
+
+## Overview
+
+Traditional 3D asset creation can require multiple specialized steps, including modeling, texturing, UV mapping, optimization, and preparation for professional workflows.
+
+3DForge AI simplifies the initial creation process by allowing users to start with either a natural-language description or a reference image.
+
+The system follows this general workflow:
 
 ```text
 Text Prompt / Reference Image
             ↓
        FastAPI Backend
             ↓
-         Tripo API
+        Tripo API
             ↓
        Raw 3D Model
             ↓
-    3D Processing Pipeline
+   Automated Processing
+            ↓
+      Optimized Asset
+            ↓
+      Interactive Preview
+            ↓
+        Export / Use
 ```
 
-The backend receives user input, creates and manages generation jobs, communicates with the Tripo 3D generation API, retrieves the generated model, and makes the raw model available to the next stage of the pipeline.
+The backend manages the generation stage and provides a clean interface between the user-facing application, AI generation service, and downstream 3D processing systems.
 
 ---
 
-# 📌 Table of Contents
+## Key Features
 
-* [About 3DForge AI](#-about-3dforge-ai)
-* [Lidiya's Responsibility](#-lidiyas-responsibility)
-* [Features](#-features)
-* [Architecture](#-architecture)
-* [Technology Stack](#-technology-stack)
-* [Project Structure](#-project-structure)
-* [How the Backend Works](#-how-the-backend-works)
-* [API Endpoints](#-api-endpoints)
-* [Job Management](#-job-management)
-* [Tripo Integration](#-tripo-integration)
-* [File Storage](#-file-storage)
-* [Environment Variables](#-environment-variables)
-* [Installation](#-installation)
-* [Running the Backend](#-running-the-backend)
-* [API Usage](#-api-usage)
-* [Frontend Integration](#-frontend-integration)
-* [Team Integration](#-team-integration)
-* [Error Handling](#-error-handling)
-* [Testing](#-testing)
-* [Security](#-security)
-* [MVP Scope](#-mvp-scope)
-* [Future Improvements](#-future-improvements)
-* [Development Guidelines](#-development-guidelines)
+* Text-to-3D generation
+* Image-to-3D generation
+* Tripo API integration
+* Asynchronous generation jobs
+* Generation status tracking
+* Raw 3D model retrieval
+* GLB/GLTF support
+* File upload and management
+* Local and cloud-ready storage architecture
+* Structured API responses
+* Error handling and validation
+* Automatic API documentation
 
 ---
 
-# 🚀 About 3DForge AI
-
-Traditional 3D asset creation requires several technical steps such as modeling, sculpting, texturing, UV mapping, optimization, and preparation for professional workflows.
-
-3DForge AI aims to simplify this process.
-
-A user can provide:
-
-* A text description
-* A reference image
-
-The system generates an initial 3D model and then passes it through a post-processing pipeline to make the asset more usable.
-
-The complete project pipeline is:
+## Architecture
 
 ```text
-TEXT / IMAGE
-     ↓
-AI 3D GENERATION
-     ↓
-RAW 3D MODEL
-     ↓
-MESH CLEANUP
-     ↓
-MESH OPTIMIZATION
-     ↓
-UV PROCESSING
-     ↓
-TEXTURE PROCESSING
-     ↓
-QUALITY VALIDATION
-     ↓
-PROCESSED GLB
-     ↓
-THREE.JS VIEWER
-     ↓
-DOWNLOAD / BLENDER
-```
-
-This backend is responsible only for the **AI generation and backend portion**.
-
----
-
-# 👩‍💻 Lidiya's Responsibility
-
-Lidiya owns:
-
-```text
-INPUT
-  ↓
-FASTAPI
-  ↓
-TRIPO
-  ↓
-RAW GLB
-```
-
-The responsibilities include:
-
-* FastAPI backend
-* Text input endpoint
-* Image input endpoint
-* Tripo integration
-* Generation job creation
-* Job status management
-* Result retrieval
-* File handling
-* Model storage
-* Error handling
-* API documentation
-
-These responsibilities correspond to Person 1 in the team plan.
-
----
-
-# ✨ Features
-
-## Text-to-3D
-
-Users can submit a text prompt such as:
-
-```text
-A realistic futuristic humanoid robot with metallic armor,
-glowing panels and mechanical joints.
-```
-
-The backend sends the prompt to Tripo and retrieves the generated 3D model.
-
----
-
-## Image-to-3D
-
-Users can upload a reference image.
-
-Example:
-
-```text
-robot.jpg
-```
-
-The backend sends the image to Tripo for 3D generation.
-
----
-
-## Asynchronous Generation
-
-3D generation can take time.
-
-Instead of keeping the frontend waiting for one large request, the backend creates a job.
-
-```text
-POST /generate
-       ↓
-    job_id
-       ↓
-GET /status/{job_id}
-       ↓
-   Generation
-       ↓
-GET /result/{job_id}
+                         USER
+                           │
+                           ▼
+                ┌─────────────────────┐
+                │   Web Application   │
+                └──────────┬──────────┘
+                           │
+                    Text / Image
+                           │
+                           ▼
+                ┌─────────────────────┐
+                │   FastAPI Backend   │
+                └──────────┬──────────┘
+                           │
+                           ▼
+                ┌─────────────────────┐
+                │      Tripo API      │
+                └──────────┬──────────┘
+                           │
+                           ▼
+                    Raw 3D Model
+                           │
+                           ▼
+                ┌─────────────────────┐
+                │ Processing Pipeline │
+                └──────────┬──────────┘
+                           │
+                           ▼
+                   Processed GLB
+                           │
+                           ▼
+                ┌─────────────────────┐
+                │   3D Viewer / App   │
+                └─────────────────────┘
 ```
 
 ---
 
-## Job Tracking
+## Technology Stack
 
-Jobs can have statuses such as:
+| Technology       | Purpose                    |
+| ---------------- | -------------------------- |
+| Python           | Backend development        |
+| FastAPI          | REST API framework         |
+| Tripo API        | AI-powered 3D generation   |
+| Pydantic         | Data validation            |
+| HTTPX            | External API communication |
+| Uvicorn          | Application server         |
+| Firebase Storage | Optional cloud storage     |
+| python-dotenv    | Environment configuration  |
 
-```text
-queued
-generating
-processing
-optimizing
-validating
-completed
-failed
-```
-
-The backend provides progress information where available.
-
----
-
-## Raw 3D Model Retrieval
-
-Once Tripo finishes generation, the backend retrieves the generated model.
-
-The primary MVP output is:
-
-```text
-GLB
-```
-
-Optional formats may include:
-
-```text
-GLTF
-OBJ
-```
-
-The generated raw model is then passed to the 3D processing pipeline.
+The broader 3DForge AI platform uses Next.js, React, Tailwind CSS, Three.js, Blender Python API, trimesh, and PyMeshLab for the application and processing stages.
 
 ---
 
-# 🏗️ Architecture
-
-```text
-                    USER
-                     │
-                     │
-              Text / Image
-                     │
-                     ▼
-        ┌──────────────────────┐
-        │    Next.js Frontend  │
-        │       Manoj          │
-        └──────────┬───────────┘
-                   │
-                   ▼
-        ┌──────────────────────┐
-        │    FastAPI Backend   │
-        │       Lidiya         │
-        └──────────┬───────────┘
-                   │
-                   ▼
-        ┌──────────────────────┐
-        │      Tripo API       │
-        └──────────┬───────────┘
-                   │
-                   ▼
-              Raw GLB
-                   │
-                   ▼
-        ┌──────────────────────┐
-        │ 3D Processing        │
-        │ Pipeline             │
-        │       Atharv         │
-        └──────────┬───────────┘
-                   │
-                   ▼
-             Processed GLB
-                   │
-                   ▼
-        ┌──────────────────────┐
-        │ Three.js Viewer      │
-        │       Manoj          │
-        └──────────────────────┘
-```
-
----
-
-# 🛠️ Technology Stack
-
-| Technology       | Purpose                     |
-| ---------------- | --------------------------- |
-| Python           | Backend programming         |
-| FastAPI          | REST API                    |
-| Tripo API        | AI 3D generation            |
-| Pydantic         | Request/response validation |
-| HTTPX            | API communication           |
-| Uvicorn          | Development server          |
-| Firebase Storage | Optional persistent storage |
-| dotenv           | Environment configuration   |
-
-The overall project stack also uses Next.js/React, Tailwind CSS, Three.js, trimesh, PyMeshLab and Blender Python, but those belong to other parts of the team architecture.
-
----
-
-# 📁 Project Structure
+# Project Structure
 
 ```text
 backend/
@@ -301,9 +139,7 @@ backend/
 │   └── settings.py
 │
 ├── uploads/
-│
 ├── generated/
-│
 ├── processed/
 │
 ├── tests/
@@ -313,40 +149,40 @@ backend/
 │   └── test_result.py
 │
 ├── requirements.txt
-├── .env
 ├── .env.example
 └── README.md
 ```
 
 ---
 
-# 🔄 How the Backend Works
+# System Workflow
 
-## Step 1 — User Input
+## 1. User Input
 
-The user provides either:
+The system accepts one of two input types:
 
-```text
-Text Prompt
-```
-
-or:
+### Text
 
 ```text
-Reference Image
+A realistic futuristic humanoid robot with metallic
+armor, glowing panels and mechanical joints.
 ```
+
+### Image
+
+A user can upload a reference image representing the desired object.
 
 ---
 
-## Step 2 — Create Generation Job
+## 2. Generation Request
 
-The frontend sends:
+The application sends the input to the backend through:
 
-```text
+```http
 POST /generate
 ```
 
-The backend creates a unique job ID.
+The backend creates a unique generation job and returns a job ID.
 
 Example:
 
@@ -359,68 +195,65 @@ Example:
 
 ---
 
-## Step 3 — Send Request to Tripo
+## 3. AI Generation
 
-The backend sends the user's input to the Tripo API.
+The backend communicates with the Tripo API to generate the initial 3D representation.
+
+The generation architecture is intentionally modular so that additional 3D generation providers can be integrated in the future.
+
+For the MVP, Tripo is the selected generation provider.
+
+---
+
+## 4. Job Tracking
+
+Because 3D generation may take time, generation is handled asynchronously.
+
+A job progresses through states such as:
 
 ```text
-FastAPI
+queued
    ↓
-Tripo
+generating
    ↓
-3D Generation
+completed
 ```
 
----
-
-## Step 4 — Track Generation
-
-The backend checks the Tripo generation status and updates the internal job.
-
-Example:
-
-```json
-{
-  "job_id": "abc123",
-  "status": "generating",
-  "stage": "AI 3D generation",
-  "progress": 65
-}
-```
-
----
-
-## Step 5 — Retrieve Model
-
-When generation finishes, the backend retrieves the generated model.
+Additional processing states can be used by the complete platform:
 
 ```text
-Tripo
- ↓
-GLB / GLTF
- ↓
-Backend Storage
+processing
+   ↓
+optimizing
+   ↓
+validating
+   ↓
+completed
 ```
 
 ---
 
-## Step 6 — Return Result
+## 5. Model Retrieval
 
-The frontend can request:
+Once generation is complete, the generated model is retrieved and stored.
+
+The primary MVP output is:
 
 ```text
-GET /result/{job_id}
+GLB
 ```
 
-The backend returns the raw model URL.
+Additional formats such as GLTF and OBJ may be supported where applicable.
 
 ---
 
-# 🔌 API Endpoints
+# API Reference
 
-## `GET /health`
+## Health Check
 
-Checks whether the backend is running.
+### `GET /health`
+
+Returns the current API status.
 
 ### Response
 
@@ -432,11 +265,13 @@ Checks whether the backend is running.
 
 ---
 
-# `POST /generate`
+# Generate 3D Model
+
+### `POST /generate`
 
 Creates a new 3D generation job.
 
-## Text Request
+### Text Request
 
 ```json
 {
@@ -457,21 +292,25 @@ Creates a new 3D generation job.
 
 ## Image Request
 
-Use multipart form data:
+The endpoint also supports multipart image uploads.
 
 ```text
+Content-Type: multipart/form-data
+
 image = robot.jpg
 ```
 
-The backend stores the image and starts the generation job.
+The image is stored and submitted to the generation service.
 
 ---
 
-# `GET /status/{job_id}`
+# Generation Status
 
-Returns the current generation status.
+### `GET /status/{job_id}`
 
-### Example
+Returns the current status of a generation job.
+
+### Response
 
 ```json
 {
@@ -482,13 +321,38 @@ Returns the current generation status.
 }
 ```
 
+When generation is complete:
+
+```json
+{
+  "job_id": "abc123",
+  "status": "completed",
+  "stage": "generation complete",
+  "progress": 100
+}
+```
+
+If generation fails:
+
+```json
+{
+  "job_id": "abc123",
+  "status": "failed",
+  "stage": "AI 3D generation",
+  "progress": 0,
+  "error": "Generation failed"
+}
+```
+
 ---
 
-# `GET /result/{job_id}`
+# Retrieve Result
 
-Returns the generated model.
+### `GET /result/{job_id}`
 
-### Example
+Returns the generated model information.
+
+### Response
 
 ```json
 {
@@ -498,127 +362,80 @@ Returns the generated model.
 }
 ```
 
-The result structure can later include processing metrics supplied by Atharv.
+The response structure can be extended to include processing and quality metrics once the downstream pipeline is integrated.
 
 ---
 
-# 📊 Job Management
+# File Management
 
-Each generation receives a unique ID.
-
-Example:
-
-```text
-abc123
-```
-
-A job can move through:
-
-```text
-queued
-   ↓
-generating
-   ↓
-completed
-```
-
-or:
-
-```text
-queued
-   ↓
-generating
-   ↓
-failed
-```
-
-The architecture also supports later stages:
-
-```text
-processing
-optimizing
-validating
-```
-
-These can be updated by the downstream processing pipeline.
-
-The project plan specifically recommends asynchronous job management because 3D generation can take time.
-
----
-
-# 🤖 Tripo Integration
-
-Tripo is used as the initial AI 3D generation provider.
-
-The project uses an existing 3D generation API instead of attempting to train a complete 3D foundation model from scratch.
-
-All Tripo-specific logic should remain inside:
-
-```text
-services/tripo.py
-```
-
-This keeps the backend modular.
-
-Future providers such as Meshy can be added without rewriting the entire application.
-
----
-
-# 📦 File Storage
-
-For the MVP, local storage can be used.
+The application uses three primary storage locations:
 
 ```text
 uploads/
 ```
 
-Contains uploaded reference images.
+Stores user-provided reference images.
 
 ```text
 generated/
 ```
 
-Contains raw AI-generated models.
+Stores raw AI-generated models.
 
 ```text
 processed/
 ```
 
-Reserved for processed models from the downstream pipeline.
+Stores models after downstream processing.
 
-The team plan allows temporary storage initially to reduce hackathon complexity, with Firebase Storage available when persistent storage is needed.
+For the hackathon MVP, local storage can be used to reduce infrastructure complexity. Firebase Storage can be introduced when persistent cloud storage is required.
 
 ---
 
-# 🔐 Environment Variables
+# Environment Configuration
 
-Create:
-
-```text
-.env
-```
-
-Example:
+Create a `.env` file:
 
 ```env
-TRIPO_API_KEY=your_api_key_here
+TRIPO_API_KEY=your_tripo_api_key
 FIREBASE_STORAGE_BUCKET=your_bucket_name
 ```
 
-Create `.env.example`:
+A `.env.example` file should be included in the repository:
 
 ```env
 TRIPO_API_KEY=
 FIREBASE_STORAGE_BUCKET=
 ```
 
-Never commit the actual `.env` file.
+### Security
+
+Never commit real credentials to version control.
+
+Add the following to `.gitignore`:
+
+```text
+.env
+venv/
+__pycache__/
+*.pyc
+```
 
 ---
 
-# 💻 Installation
+# Installation
 
-## 1. Clone the Repository
+## Prerequisites
+
+Make sure the following are installed:
+
+* Python 3.10+
+* pip
+* Git
+
+---
+
+## Clone the Repository
 
 ```bash
 git clone <repository-url>
@@ -627,7 +444,7 @@ cd 3DForge-AI/backend
 
 ---
 
-## 2. Create Virtual Environment
+## Create Virtual Environment
 
 ### Windows
 
@@ -636,7 +453,7 @@ python -m venv venv
 venv\Scripts\activate
 ```
 
-### macOS/Linux
+### macOS / Linux
 
 ```bash
 python3 -m venv venv
@@ -645,7 +462,7 @@ source venv/bin/activate
 
 ---
 
-## 3. Install Dependencies
+## Install Dependencies
 
 ```bash
 pip install -r requirements.txt
@@ -653,31 +470,25 @@ pip install -r requirements.txt
 
 ---
 
-## 4. Configure Environment
+## Configure Environment
 
-Create:
-
-```text
-.env
-```
-
-Add:
+Create `.env` and add the required API credentials.
 
 ```env
-TRIPO_API_KEY=your_api_key
+TRIPO_API_KEY=your_tripo_api_key
 ```
 
 ---
 
-# ▶️ Running the Backend
+# Running the Application
 
-Start FastAPI:
+Start the FastAPI server:
 
 ```bash
 uvicorn main:app --reload
 ```
 
-The server will be available at:
+The API will be available at:
 
 ```text
 http://localhost:8000
@@ -689,11 +500,17 @@ Interactive API documentation:
 http://localhost:8000/docs
 ```
 
+Alternative documentation:
+
+```text
+http://localhost:8000/redoc
+```
+
 ---
 
-# 🧪 API Usage Example
+# API Usage
 
-## Create Generation
+## Create a Generation Job
 
 ```bash
 curl -X POST "http://localhost:8000/generate" \
@@ -701,7 +518,7 @@ curl -X POST "http://localhost:8000/generate" \
 -d "{\"prompt\":\"A realistic futuristic robot\"}"
 ```
 
-Response:
+Example response:
 
 ```json
 {
@@ -712,169 +529,58 @@ Response:
 
 ---
 
-## Check Status
+## Check Generation Status
 
 ```bash
 curl "http://localhost:8000/status/abc123"
 ```
 
-Response:
-
-```json
-{
-  "job_id": "abc123",
-  "status": "generating",
-  "stage": "AI 3D generation",
-  "progress": 65
-}
-```
-
 ---
 
-## Get Result
+## Retrieve the Generated Model
 
 ```bash
 curl "http://localhost:8000/result/abc123"
 ```
 
-Response:
-
-```json
-{
-  "status": "completed",
-  "model_url": "/generated/abc123/model.glb",
-  "format": "glb"
-}
-```
-
 ---
 
-# 🔗 Frontend Integration
+# Integration Flow
 
-Manoj's frontend communicates with this backend through the following flow:
+The backend exposes a simple interface for the rest of the platform:
 
 ```text
-User
- ↓
-Generate Button
- ↓
 POST /generate
- ↓
-job_id
- ↓
+       ↓
+    job_id
+       ↓
 GET /status/{job_id}
- ↓
+       ↓
 Generation Complete
- ↓
+       ↓
 GET /result/{job_id}
- ↓
-Raw / Processed Model
-```
-
-The frontend should never need to communicate directly with the Tripo API.
-
-The Tripo API key remains on the backend.
-
----
-
-# 🤝 Team Integration
-
-The three modules connect as follows.
-
-## Lidiya — Backend
-
-```text
-Input
- ↓
-FastAPI
- ↓
-Tripo
- ↓
+       ↓
 Raw GLB
 ```
 
-## Atharv — Processing
-
-```text
-Raw GLB
- ↓
-Mesh Analysis
- ↓
-Mesh Cleanup
- ↓
-Mesh Optimization
- ↓
-UV Processing
- ↓
-Texture Processing
- ↓
-Quality Validation
- ↓
-Final GLB
-```
-
-## Manoj — Frontend
-
-```text
-Final GLB
- ↓
-Three.js
- ↓
-Interactive Viewer
- ↓
-Quality Report
- ↓
-Download
-```
-
-This responsibility split is defined in the team's final architecture.
+The raw GLB can then enter the automated 3D processing pipeline.
 
 ---
 
-# 🔁 Shared API Contract
+# Error Handling
 
-Before integrating all three modules, the team should agree on:
+The API validates requests and handles common failures including:
 
-* API request format
-* API response format
-* Job status format
-* Model file format
-* Quality metrics format
-* Error format
-
-The shared model format for the MVP is:
-
-```text
-GLB
-```
-
-The backend should preserve a stable interface so the other modules can be developed independently.
-
----
-
-# ⚠️ Error Handling
-
-The backend should handle:
-
-### Invalid Input
-
-```text
-400 Bad Request
-```
-
-Example:
-
-```json
-{
-  "error": "Prompt or image is required"
-}
-```
-
-### Invalid Job
-
-```text
-404 Not Found
-```
+* Missing prompt
+* Missing image
+* Invalid image format
+* Invalid API credentials
+* Tripo API errors
+* Generation timeouts
+* Failed generation jobs
+* Invalid job IDs
+* Missing model files
+* Storage failures
 
 Example:
 
@@ -884,160 +590,55 @@ Example:
 }
 ```
 
-### Tripo Failure
-
-```text
-502 Bad Gateway
-```
-
-Example:
-
-```json
-{
-  "error": "3D generation service failed"
-}
-```
-
-### Internal Failure
-
-```text
-500 Internal Server Error
-```
-
-Do not expose API keys or sensitive internal information.
+HTTP status codes should accurately represent the type of failure.
 
 ---
 
-# 🧪 Testing
+# Testing
 
-Run:
+Run the test suite using:
 
 ```bash
 pytest
 ```
 
-Test:
+Tests should cover:
 
-* Health endpoint
-* Text generation validation
-* Image upload validation
+* Health check
+* Request validation
+* Text generation
+* Image upload
 * Job creation
-* Job status
-* Invalid job ID
+* Status retrieval
 * Result retrieval
+* Invalid job IDs
 * Error handling
 
-Tripo API calls should be mocked during automated tests.
+External Tripo API requests should be mocked during automated testing.
 
 ---
 
-# 🔒 Security
+# Development Principles
 
-Important rules:
+### Modular Architecture
 
-* Never hardcode API keys.
-* Never commit `.env`.
-* Validate uploaded files.
-* Restrict accepted image types.
-* Limit upload sizes.
-* Keep Tripo credentials server-side.
-* Sanitize file names.
-* Return safe error messages.
+External service integrations should remain isolated from API routes.
 
----
-
-# 🎯 MVP Scope
-
-The backend MVP must successfully support:
-
-* [x] FastAPI server
-* [x] Text input
-* [x] Image input
-* [x] Tripo integration
-* [x] Job creation
-* [x] Job status
-* [x] Result endpoint
-* [x] Raw GLB retrieval
-* [x] File handling
-* [x] Error handling
-* [x] API documentation
-
-These correspond to the Person 1 deliverables in the team plan.
-
----
-
-# 🚫 Out of Scope for Lidiya
-
-Do **not** implement these in this module:
-
-* Three.js viewer
-* Next.js UI
-* Tailwind UI
-* Mesh cleanup
-* Mesh optimization
-* UV generation
-* Texture optimization
-* Blender processing
-* Quality validation logic
-* Character rigging
-* Unity integration
-* Unreal integration
-* Godot integration
-
-These belong to other parts of the project or future scope.
-
----
-
-# 🚀 Future Improvements
-
-Possible backend improvements include:
-
-* Redis-based job queue
-* Persistent database
-* Firebase Storage
-* Cloud storage
-* Authentication
-* Generation history
-* Multiple AI providers
-* Meshy integration
-* Retry mechanisms
-* Background workers
-* Cloud deployment
-* WebSocket-based status updates
-
-The architecture should remain modular enough to support these improvements.
-
----
-
-# 🧑‍💻 Development Guidelines
-
-## Keep Services Separate
-
-Tripo logic belongs in:
+For example:
 
 ```text
+routes/generate.py
+        ↓
 services/tripo.py
+        ↓
+Tripo API
 ```
 
-Storage logic belongs in:
+This makes the system easier to maintain and allows the generation provider to be replaced in the future.
 
-```text
-services/storage.py
-```
+### Clear API Contracts
 
-Job management belongs in:
-
-```text
-services/jobs.py
-```
-
-API routes should remain lightweight.
-
----
-
-## Keep API Contracts Stable
-
-Do not randomly change:
+The following interfaces should remain stable:
 
 ```text
 POST /generate
@@ -1045,120 +646,158 @@ GET /status/{job_id}
 GET /result/{job_id}
 ```
 
-without informing the frontend and processing team.
+The frontend and processing pipeline should rely on these defined interfaces.
+
+### Secure Configuration
+
+API keys and credentials must always be provided through environment variables.
+
+### MVP First
+
+The initial implementation should prioritize a reliable end-to-end generation flow rather than unnecessary infrastructure.
 
 ---
 
-## Keep the MVP Simple
+# MVP Scope
 
-The primary goal is:
+The backend MVP includes:
+
+* Text input
+* Image input
+* Tripo generation
+* FastAPI server
+* Generation jobs
+* Status tracking
+* Result retrieval
+* Raw GLB output
+* File handling
+* Storage
+* Error handling
+* API documentation
+
+These align with the project's defined MVP requirements.
+
+---
+
+# Out of Scope
+
+The following are not required for the initial MVP:
+
+* Training a custom 3D foundation model
+* Advanced AI retopology
+* Automatic character rigging
+* Natural-language texture editing
+* Style transformation
+* Automatic LOD generation
+* Unity integration
+* Unreal Engine integration
+* Godot integration
+* Collaboration features
+* Marketplace functionality
+* Complex user accounts
+* Full asset library
+
+These are considered future development areas rather than core MVP requirements.
+
+---
+
+# Future Development
+
+Potential improvements include:
+
+* Redis-based background job processing
+* Persistent database integration
+* Firebase/cloud storage
+* Additional 3D generation providers
+* Meshy integration
+* WebSocket-based real-time progress
+* Authentication
+* Generation history
+* Cloud deployment
+* Retry and recovery mechanisms
+* Scalable worker architecture
+
+---
+
+# End-to-End Platform
+
+The complete 3DForge AI system is designed around:
 
 ```text
-TEXT / IMAGE
-     ↓
-FASTAPI
-     ↓
-TRIPO
-     ↓
-RAW GLB
-```
-
-Everything else should support this core flow.
-
----
-
-# 🏆 Final Demo Flow
-
-The complete hackathon demo should look like:
-
-```text
-1. User opens 3DForge AI
-              ↓
-2. Enters:
-   "A realistic futuristic humanoid robot"
-              ↓
-3. Clicks Generate
-              ↓
-4. Frontend calls POST /generate
-              ↓
-5. Backend creates job
-              ↓
-6. Backend sends request to Tripo
-              ↓
-7. Tripo generates 3D model
-              ↓
-8. Backend retrieves raw GLB
-              ↓
-9. Raw GLB goes to processing pipeline
-              ↓
-10. Processed GLB returns to frontend
-              ↓
-11. Three.js displays model
-              ↓
-12. Quality report is shown
-              ↓
-13. User downloads GLB
-              ↓
-14. Model can be opened in Blender
+                    USER
+                     │
+                     ▼
+              Text / Image
+                     │
+                     ▼
+             AI 3D Generation
+                     │
+                     ▼
+                Raw GLB
+                     │
+                     ▼
+           Automated Processing
+                     │
+        ┌────────────┼────────────┐
+        ▼            ▼            ▼
+      Mesh          UV         Textures
+     Cleanup     Processing    Processing
+        │            │            │
+        └────────────┼────────────┘
+                     ▼
+             Quality Validation
+                     │
+                     ▼
+              Processed GLB
+                     │
+                     ▼
+             Interactive Viewer
+                     │
+                     ▼
+             Production Export
 ```
 
 ---
 
-# 💡 Core USP
+# Project Goal
 
-3DForge AI is not just another text-to-3D generator.
+3DForge AI aims to reduce the time and technical expertise required to create usable 3D assets for applications such as:
 
-The core idea is:
+* Gaming
+* VR/AR
+* Simulation
+* Product visualization
+* Animation
+* Digital design
+* Interactive applications
+
+The core concept is to bridge the gap between **generative AI and practical 3D production workflows**.
+
+---
+
+# Core Value Proposition
 
 > **We don't just generate a 3D model — we automate the journey from AI-generated geometry to production-ready assets.**
 
-The backend is the first critical step in that journey:
-
-```text
-Simple Idea
-     ↓
-AI Generation
-     ↓
-Raw 3D Model
-     ↓
-Processing
-     ↓
-Production-Ready Asset
-```
-
 ---
 
-# 👥 Team
-
-### Lidiya
-
-**AI Generation + Backend**
-
-Python · FastAPI · Tripo · Storage
-
-### Atharv
-
-**3D Processing Pipeline**
-
-Blender Python · trimesh · PyMeshLab
-
-### Manoj
-
-**Frontend + 3D Viewer**
-
-Next.js · React · Tailwind CSS · Three.js
-
----
-
-# 📄 Project Status
+# Project Status
 
 **Project:** 3DForge AI
-**Module:** AI Generation + Backend
-**Primary Output:** Raw GLB
+**Platform:** AI-powered 3D asset generation and preparation
+**Primary MVP Output:** GLB
+**Generation Provider:** Tripo
+**Backend:** FastAPI + Python
 **Status:** Hackathon MVP
 
 ---
 
-## ⭐ 3DForge AI
+## License
 
-**From a simple idea to a production-ready 3D asset — automatically.**
+Add the project's chosen license here before publishing the repository.
+
+---
+
+## Acknowledgements
+
+3DForge AI builds upon modern AI and open-source 3D technologies to simplify the transition from generated 3D content to usable digital assets.
