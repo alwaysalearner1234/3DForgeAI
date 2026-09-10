@@ -801,3 +801,18 @@ Add the project's chosen license here before publishing the repository.
 ## Acknowledgements
 
 3DForge AI builds upon modern AI and open-source 3D technologies to simplify the transition from generated 3D content to usable digital assets.
+
+---
+
+## Backend Quickstart
+
+The FastAPI generation engine coordinates text prompts, image uploads, asynchronous generation via Tripo, and asset delivery.
+
+```bash
+cd backend
+pip install -r requirements.txt
+cp .env.example .env
+uvicorn main:app --reload --port 8000
+```
+
+See [backend/README.md](backend/README.md) for full API documentation, cURL examples, and team integration specifications.
