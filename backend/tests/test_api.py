@@ -15,7 +15,7 @@ from backend.main import app
 from backend.models.schemas import JobStatusEnum
 from backend.services.jobs import jobs
 from backend.services.storage import storage
-from backend.services.tripo import generate_mock_glb
+from backend.services.asset_templates import SemanticAssetEngine, generate_procedural_sword_glb, analyze_glb_data
 
 client = TestClient(app)
 
@@ -132,16 +132,18 @@ def test_get_result_in_progress():
 def test_get_result_and_download_completed_job():
     """Verify GET /result/{job_id} and /download/{job_id} for a completed job."""
     job = jobs.create_job(prompt="Complete model test")
-    glb_content = generate_mock_glb()
+    glb_content = generate_procedural_sword_glb()
     storage.save_generated_model(job.job_id, glb_content, "model.glb")
     model_url = storage.get_model_url(job.job_id, "model.glb")
+    metrics = analyze_glb_data(glb_content)
 
     jobs.update_job(
         job.job_id,
         status=JobStatusEnum.COMPLETED,
         stage="generation complete",
         progress=100,
-        model_url=model_url
+        model_url=model_url,
+        metrics=metrics
     )
 
     # 1. Test /result/{job_id}
@@ -150,24 +152,55 @@ def test_get_result_and_download_completed_job():
     res_data = res_response.json()
     assert res_data["status"] == "completed"
     assert res_data["format"] == "glb"
-    assert res_data["model_url"] == model_url
-    assert isinstance(res_data["metrics"], dict)
+    assert res_data["asset_url"] == model_url
+    assert res_data["job_id"] == job.job_id
+    assert res_data["metrics"]["polygon_count"] > 12  # Real mesh, not a simple 12-triangle cube
 
     # 2. Test /download/{job_id}
     dl_response = client.get(f"/download/{job.job_id}")
     assert dl_response.status_code == 200
     assert dl_response.headers["content-type"] == "model/gltf-binary"
-    assert dl_response.content[:4] == b"glTF"  # GLB header verification
+    assert dl_response.content[:4] == b"glTF"
 
 
-def test_generate_mock_glb_is_valid():
-    """Verify mock GLB generator outputs a valid glTF 2.0 binary header."""
-    glb = generate_mock_glb()
-    assert len(glb) > 100
+def test_procedural_sword_glb_is_valid():
+    """Verify procedural sword generator outputs a valid glTF 2.0 binary header with rich geometry."""
+    glb = generate_procedural_sword_glb()
+    assert len(glb) > 1000  # Detailed asset, not 1024 byte cube
     assert glb[:4] == b"glTF"
-    version, length = struct_unpack = (
-        int.from_bytes(glb[4:8], "little"),
-        int.from_bytes(glb[8:12], "little")
-    )
+    version = int.from_bytes(glb[4:8], "little")
+    length = int.from_bytes(glb[8:12], "little")
     assert version == 2
     assert length == len(glb)
+
+    metrics = analyze_glb_data(glb)
+    assert metrics["polygon_count"] > 50
+    assert metrics["vertex_count"] > 100
+
+
+def test_different_inputs_produce_different_assets():
+    """Verify that different prompts produce completely distinct 3D models with different geometry."""
+    inputs = [
+        "A futuristic sports car",
+        "A wooden office chair",
+        "A low-poly medieval sword",
+        "A cute robot character"
+    ]
+    assets = []
+    for prompt in inputs:
+        glb, label = SemanticAssetEngine.get_asset_for_input(prompt=prompt)
+        metrics = analyze_glb_data(glb)
+        assets.append({
+            "prompt": prompt,
+            "label": label,
+            "size": len(glb),
+            "polygons": metrics["polygon_count"],
+            "vertices": metrics["vertex_count"]
+        })
+
+    # Ensure all sizes and labels are distinct
+    labels = [a["label"] for a in assets]
+    sizes = [a["size"] for a in assets]
+    assert len(set(labels)) == len(inputs), f"Labels not distinct: {labels}"
+    assert len(set(sizes)) == len(inputs), f"Sizes not distinct: {sizes}"
+

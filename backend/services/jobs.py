@@ -1,7 +1,7 @@
 import threading
 import uuid
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from backend.models.schemas import JobRecord, JobStatusEnum
 
 
@@ -56,6 +56,7 @@ class JobManager:
         model_file_path: Optional[str] = None,
         model_url: Optional[str] = None,
         error: Optional[str] = None,
+        metrics: Optional[Dict[str, Any]] = None,
     ) -> Optional[JobRecord]:
         """Update job fields thread-safely."""
         with self._lock:
@@ -77,6 +78,8 @@ class JobManager:
                 job.model_url = model_url
             if error is not None:
                 job.error = error
+            if metrics is not None:
+                job.metrics = metrics
 
             job.updated_at = datetime.utcnow()
             return job.model_copy()

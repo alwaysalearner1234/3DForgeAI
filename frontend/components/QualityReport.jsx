@@ -12,23 +12,32 @@ import {
     Check,
     Cpu,
     ShieldCheck,
+    AlertCircle,
+    Info
 } from "lucide-react";
 
 export default function QualityReport({ metrics, modelUrl, jobId }) {
     const [copied, setCopied] = useState(false);
 
-    const quality = {
-        polygon_before: metrics?.polygon_before || 450000,
-        polygon_after: metrics?.polygon_after || 120000,
-        mesh_status: metrics?.mesh_status || "clean",
-        uv_status: metrics?.uv_status || "optimized",
-        texture_status: metrics?.texture_status || "preserved",
-        format: (metrics?.format || "glb").toUpperCase(),
-    };
+    // Check if real metrics exist
+    const hasRealMetrics =
+        metrics &&
+        (typeof metrics.polygon_count === "number" || typeof metrics.polygon_after === "number");
 
-    const reductionPercent = Math.round(
-        ((quality.polygon_before - quality.polygon_after) / quality.polygon_before) * 100
-    );
+    const faceCount = hasRealMetrics
+        ? (metrics.polygon_count ?? metrics.polygon_after)
+        : null;
+
+    const vertexCount = hasRealMetrics ? metrics.vertex_count : null;
+    const fileSizeKb = hasRealMetrics ? metrics.file_size_kb : null;
+    const polygonBefore = hasRealMetrics ? metrics.polygon_before : null;
+    const reductionPercent = hasRealMetrics ? (metrics.reduction_percent ?? 0) : null;
+    const assetLabel = metrics?.asset_label || null;
+
+    const meshStatus = metrics?.mesh_status || (hasRealMetrics ? "Clean" : "Analysis unavailable");
+    const uvStatus = metrics?.uv_status || (hasRealMetrics ? "Optimized" : "Analysis unavailable");
+    const textureStatus = metrics?.texture_status || (hasRealMetrics ? "Preserved" : "Analysis unavailable");
+    const format = (metrics?.format || "glb").toUpperCase();
 
     const handleCopyJobId = () => {
         if (jobId) {
@@ -59,13 +68,14 @@ export default function QualityReport({ metrics, modelUrl, jobId }) {
                     <div>
                         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-500/30 text-emerald-400 text-xs font-semibold">
                             <ShieldCheck className="w-3.5 h-3.5" />
-                            <span>Production Validated</span>
+                            <span>{hasRealMetrics ? "Production Validated" : "Mesh Ready"}</span>
                         </div>
                         <h2 className="text-2xl font-bold text-white mt-2 tracking-tight">
                             Asset Quality Report
                         </h2>
                         <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                            Geometry post-processed for real-time engines and Blender import.
+                            {assetLabel ? `Asset: ${assetLabel} • ` : ""}
+                            Geometric topology evaluated for real-time 3D rendering.
                         </p>
                     </div>
 
@@ -81,40 +91,71 @@ export default function QualityReport({ metrics, modelUrl, jobId }) {
                     )}
                 </div>
 
-                {/* Polygon Decimation Meter */}
+                {/* Geometry Section */}
                 <div className="mt-6">
                     <div className="flex items-center justify-between text-xs mb-2">
                         <span className="font-semibold text-slate-300 flex items-center gap-1.5">
                             <Layers className="w-4 h-4 text-cyan-400" />
-                            Geometry Optimization
+                            Geometry Topology
                         </span>
-                        <span className="font-mono text-emerald-400 font-bold">
-                            -{reductionPercent}% Polygons
-                        </span>
+                        {hasRealMetrics && reductionPercent > 0 ? (
+                            <span className="font-mono text-emerald-400 font-bold">
+                                -{reductionPercent}% Polygons
+                            </span>
+                        ) : null}
                     </div>
 
                     <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800/90 mb-6">
-                        <div className="flex justify-between items-baseline mb-2">
-                            <span className="text-xs text-slate-400">Raw AI Mesh</span>
-                            <span className="text-xs font-mono line-through text-slate-500">
-                                {quality.polygon_before.toLocaleString()} faces
-                            </span>
-                        </div>
+                        {hasRealMetrics ? (
+                            <>
+                                {polygonBefore && polygonBefore > faceCount && (
+                                    <div className="flex justify-between items-baseline mb-2">
+                                        <span className="text-xs text-slate-400">Raw Geometry</span>
+                                        <span className="text-xs font-mono line-through text-slate-500">
+                                            {polygonBefore.toLocaleString()} faces
+                                        </span>
+                                    </div>
+                                )}
 
-                        {/* Visual Bar Comparison */}
-                        <div className="w-full bg-slate-900 rounded-full h-3 p-0.5 border border-slate-800 relative overflow-hidden mb-3">
-                            <div
-                                className="bg-gradient-to-r from-cyan-400 to-violet-500 h-full rounded-full"
-                                style={{ width: `${100 - reductionPercent}%` }}
-                            />
-                        </div>
+                                {/* Real Polygon Count Display */}
+                                <div className="flex justify-between items-baseline">
+                                    <span className="text-xs font-semibold text-cyan-300">
+                                        Validated Mesh Polygons
+                                    </span>
+                                    <span className="text-sm font-mono font-bold text-white">
+                                        {faceCount.toLocaleString()} faces
+                                    </span>
+                                </div>
 
-                        <div className="flex justify-between items-baseline">
-                            <span className="text-xs font-semibold text-cyan-300">Cleaned &amp; Decimated</span>
-                            <span className="text-sm font-mono font-bold text-white">
-                                {quality.polygon_after.toLocaleString()} faces
-                            </span>
-                        </div>
+                                {vertexCount != null && (
+                                    <div className="flex justify-between items-baseline mt-2 pt-2 border-t border-slate-800/60">
+                                        <span className="text-xs text-slate-400">Total Vertices</span>
+                                        <span className="text-xs font-mono text-slate-300">
+                                            {vertexCount.toLocaleString()} vertices
+                                        </span>
+                                    </div>
+                                )}
+
+                                {fileSizeKb != null && (
+                                    <div className="flex justify-between items-baseline mt-1.5">
+                                        <span className="text-xs text-slate-400">Asset File Size</span>
+                                        <span className="text-xs font-mono text-slate-300">
+                                            {fileSizeKb} KB
+                                        </span>
+                                    </div>
+                                )}
+                            </>
+                        ) : (
+                            <div className="py-2 text-center">
+                                <div className="inline-flex items-center gap-2 text-amber-400 text-xs font-medium">
+                                    <Info className="w-4 h-4" />
+                                    <span>Analysis unavailable</span>
+                                </div>
+                                <p className="text-[11px] text-slate-500 mt-1">
+                                    Mesh topology metrics could not be computed for this asset.
+                                </p>
+                            </div>
+                        )}
                     </div>
 
                     {/* Subsystem Badges */}
@@ -123,7 +164,7 @@ export default function QualityReport({ metrics, modelUrl, jobId }) {
                             <span className="text-slate-400 block text-[11px]">Mesh Topology</span>
                             <span className="font-semibold text-emerald-400 flex items-center gap-1.5 mt-1 capitalize">
                                 <CheckCircle2 className="w-3.5 h-3.5" />
-                                {quality.mesh_status}
+                                {meshStatus}
                             </span>
                         </div>
 
@@ -131,7 +172,7 @@ export default function QualityReport({ metrics, modelUrl, jobId }) {
                             <span className="text-slate-400 block text-[11px]">UV Mapping</span>
                             <span className="font-semibold text-emerald-400 flex items-center gap-1.5 mt-1 capitalize">
                                 <CheckCircle2 className="w-3.5 h-3.5" />
-                                {quality.uv_status}
+                                {uvStatus}
                             </span>
                         </div>
 
@@ -139,7 +180,7 @@ export default function QualityReport({ metrics, modelUrl, jobId }) {
                             <span className="text-slate-400 block text-[11px]">PBR Materials</span>
                             <span className="font-semibold text-emerald-400 flex items-center gap-1.5 mt-1 capitalize">
                                 <CheckCircle2 className="w-3.5 h-3.5" />
-                                {quality.texture_status}
+                                {textureStatus}
                             </span>
                         </div>
 
@@ -147,14 +188,14 @@ export default function QualityReport({ metrics, modelUrl, jobId }) {
                             <span className="text-slate-400 block text-[11px]">Target Export</span>
                             <span className="font-semibold text-cyan-400 flex items-center gap-1.5 mt-1">
                                 <Cpu className="w-3.5 h-3.5" />
-                                {quality.format} Binary
+                                {format} Binary
                             </span>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Buttons */}
+            {/* Action Buttons */}
             <div className="mt-8 pt-6 border-t border-slate-800 flex flex-col gap-3">
                 <button
                     type="button"
@@ -162,7 +203,7 @@ export default function QualityReport({ metrics, modelUrl, jobId }) {
                     className="w-full py-4 px-6 rounded-xl font-bold text-sm sm:text-base flex items-center justify-center gap-2.5 bg-gradient-to-r from-cyan-500 via-sky-500 to-violet-600 hover:from-cyan-400 hover:to-violet-500 text-white shadow-xl shadow-cyan-500/25 transition-all hover:scale-[1.01] active:scale-[0.99]"
                 >
                     <Download className="w-5 h-5" />
-                    <span>Download Production {quality.format}</span>
+                    <span>Download Production {format}</span>
                 </button>
 
                 <Link

@@ -1,5 +1,6 @@
 import os
 import uuid
+import logging
 from pathlib import Path
 from typing import Optional
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, UploadFile, status
@@ -9,6 +10,8 @@ from backend.models.schemas import JobResponse, JobStatusEnum, TextGenerateReque
 from backend.services.jobs import jobs
 from backend.services.storage import storage
 from backend.services.tripo import tripo_service
+
+logger = logging.getLogger("3dforge.generate")
 
 router = APIRouter(prefix="", tags=["Generation"])
 
@@ -104,6 +107,7 @@ async def generate_3d_asset(
 
     # Create job in queued state
     job = jobs.create_job(prompt=prompt, image_filename=saved_filename)
+    logger.info(f"[POST /generate] Created generation job: {job.job_id} | prompt='{prompt}' | image='{saved_filename}'")
 
     # Spawn background worker to coordinate with Tripo
     background_tasks.add_task(
@@ -114,3 +118,4 @@ async def generate_3d_asset(
     )
 
     return JobResponse(job_id=job.job_id, status=job.status)
+

@@ -37,13 +37,16 @@ export default function GeneratePage() {
             let payload;
             if (mode === "text") {
                 payload = prompt.trim();
+                console.log(`[GeneratePage] Starting text generation with prompt: "${payload}"`);
             } else {
                 payload = new FormData();
                 payload.append("image", imageFile);
+                console.log(`[GeneratePage] Starting image generation with file: "${imageFile.name}" (${imageFile.size} bytes)`);
             }
 
             const genResponse = await generate3D(payload);
             const jobId = genResponse.job_id;
+            console.log(`[GeneratePage] Received Job ID from backend: ${jobId}`);
 
             if (!jobId) {
                 throw new Error("No job_id returned by generation engine.");
@@ -52,23 +55,26 @@ export default function GeneratePage() {
             const pollInterval = setInterval(async () => {
                 try {
                     const statusRes = await getJobStatus(jobId);
+                    console.log(`[GeneratePage] Job ${jobId} status: ${statusRes.status} (${statusRes.progress}%) - ${statusRes.stage}`);
                     setStatusData(statusRes);
 
                     if (statusRes.status === "completed") {
                         clearInterval(pollInterval);
+                        console.log(`[GeneratePage] Job ${jobId} completed. Redirecting to /result?job_id=${jobId}`);
                         setTimeout(() => {
                             router.push(`/result?job_id=${jobId}`);
-                        }, 800);
+                        }, 500);
                     } else if (statusRes.status === "failed") {
                         clearInterval(pollInterval);
+                        console.error(`[GeneratePage] Job ${jobId} failed:`, statusRes.error);
                         setError(statusRes.error || "Generation pipeline failed.");
                     }
                 } catch (pollError) {
-                    console.error("Polling error:", pollError);
+                    console.error("[GeneratePage] Polling error:", pollError);
                 }
-            }, 3000);
+            }, 1500);
         } catch (err) {
-            console.error("Generation error:", err);
+            console.error("[GeneratePage] Generation submission error:", err);
             setError(err.message || "Failed to initiate generation pipeline.");
             setIsSubmitting(false);
             setStatusData(null);

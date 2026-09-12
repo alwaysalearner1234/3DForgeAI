@@ -1,8 +1,11 @@
+import logging
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import FileResponse
 from backend.models.schemas import JobStatusEnum, ResultResponse
 from backend.services.jobs import jobs
 from backend.services.storage import storage
+
+logger = logging.getLogger("3dforge.result")
 
 router = APIRouter(prefix="", tags=["Result"])
 
@@ -36,13 +39,18 @@ def get_job_result(job_id: str) -> ResultResponse:
             detail=f"Job '{job_id}' is still in progress (current status: '{job.status}', progress: {job.progress}%)."
         )
 
-    model_url = job.model_url or storage.get_model_url(job.job_id, "model.glb")
+    asset_url = job.model_url or storage.get_model_url(job.job_id, "model.glb")
+    logger.info(f"[GET /result/{job_id}] Returning asset_url: '{asset_url}', prompt='{job.prompt}', metrics={job.metrics}")
 
     return ResultResponse(
+        job_id=job.job_id,
         status=job.status,
-        model_url=model_url,
+        asset_url=asset_url,
+        model_url=asset_url,
         format="glb",
-        metrics={}  # Atharv's processing pipeline will populate these in later stages
+        prompt=job.prompt,
+        source_image=job.image_filename,
+        metrics=job.metrics or {}
     )
 
 

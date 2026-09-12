@@ -13,7 +13,10 @@ import {
 // Set to false when connecting to Lidiya's running FastAPI backend
 export const USE_MOCK = false;
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+const API_BASE_URL =
+    process.env.NEXT_PUBLIC_API_BASE_URL ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    "http://localhost:8000";
 
 /**
  * Starts 3D generation from text prompt or image file
@@ -21,10 +24,15 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8
  */
 export async function generate3D(payload) {
     if (USE_MOCK) {
+        console.log("[Frontend API] [MOCK MODE] generate3D called with:", payload);
         return mockGenerate(payload);
     }
 
     try {
+        console.log("[Frontend API] Generation request initiated with payload:",
+            payload instanceof FormData ? "FormData (Image Upload)" : { prompt: payload }
+        );
+
         let response;
         if (payload instanceof FormData) {
             // Image upload mode (multipart/form-data)
@@ -46,9 +54,11 @@ export async function generate3D(payload) {
             throw new Error(errData.detail || errData.error || `Server responded with ${response.status}`);
         }
 
-        return await response.json();
+        const data = await response.json();
+        console.log("[Frontend API] Generation response received:", data);
+        return data;
     } catch (error) {
-        console.error("API generate3D error:", error);
+        console.error("[Frontend API] generate3D error:", error);
         throw error;
     }
 }
@@ -67,9 +77,11 @@ export async function getJobStatus(jobId) {
         if (!response.ok) {
             throw new Error(`Failed to fetch status: ${response.statusText}`);
         }
-        return await response.json();
+        const data = await response.json();
+        console.log(`[Frontend API] Polling status for ${jobId}: ${data.status} (${data.progress}%) - ${data.stage}`);
+        return data;
     } catch (error) {
-        console.error("API getJobStatus error:", error);
+        console.error("[Frontend API] getJobStatus error:", error);
         throw error;
     }
 }
@@ -84,6 +96,7 @@ export async function getJobResult(jobId) {
     }
 
     try {
+        console.log(`[Frontend API] Fetching result for job_id: ${jobId}`);
         const response = await fetch(`${API_BASE_URL}/result/${jobId}`);
         if (!response.ok) {
             throw new Error(`Failed to fetch result: ${response.statusText}`);
@@ -91,14 +104,27 @@ export async function getJobResult(jobId) {
 
         const data = await response.json();
 
-        // If model_url is relative (/generated/abc123/model.glb), prefix with base URL
+        // Normalize URLs
+        if (data.asset_url && data.asset_url.startsWith("/")) {
+            data.asset_url = `${API_BASE_URL}${data.asset_url}`;
+        }
         if (data.model_url && data.model_url.startsWith("/")) {
             data.model_url = `${API_BASE_URL}${data.model_url}`;
         }
+        if (!data.asset_url && data.model_url) {
+            data.asset_url = data.model_url;
+        }
+
+        console.log(`[Frontend API] Job ${jobId} Result loaded successfully:`, {
+            asset_url: data.asset_url,
+            format: data.format,
+            prompt: data.prompt,
+            metrics: data.metrics
+        });
 
         return data;
     } catch (error) {
-        console.error("API getJobResult error:", error);
+        console.error("[Frontend API] getJobResult error:", error);
         throw error;
     }
 }

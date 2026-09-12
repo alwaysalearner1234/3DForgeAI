@@ -1,28 +1,98 @@
 "use client";
 
-import { Suspense, useRef, useState, useEffect } from "react";
+import React, { Suspense, useRef, useState, useEffect, useMemo, Component } from "react";
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls, useGLTF, Center, Html, Grid } from "@react-three/drei";
-import { RotateCcw, Box, Eye, Loader2, Maximize2, Minimize2 } from "lucide-react";
+import { OrbitControls, useGLTF, Html, Grid } from "@react-three/drei";
+import * as THREE from "three";
+import { RotateCcw, Box, Eye, Loader2, Maximize2, Minimize2, AlertTriangle } from "lucide-react";
+
+class ViewerErrorBoundary extends Component {
+    constructor(props) {
+        super(props);
+        this.state = { hasError: false, error: null };
+    }
+
+    static getDerivedStateFromError(error) {
+        return { hasError: true, error };
+    }
+
+    componentDidCatch(error, errorInfo) {
+        console.error("[ModelViewer] Loader error:", error, errorInfo);
+    }
+
+    render() {
+        if (this.state.hasError) {
+            return (
+                <Html center>
+                    <div className="flex flex-col items-center gap-3 bg-rose-950/95 border border-rose-800 px-6 py-5 rounded-2xl backdrop-blur-md shadow-2xl max-w-sm text-center">
+                        <AlertTriangle className="w-8 h-8 text-rose-400" />
+                        <span className="text-sm font-bold text-white">
+                            3D Model Render Failed
+                        </span>
+                        <p className="text-xs text-rose-300">
+                            {this.state.error?.message || "Could not load or parse 3D asset geometry."}
+                        </p>
+                    </div>
+                </Html>
+            );
+        }
+        return this.props.children;
+    }
+}
 
 function Model({ url, wireframe }) {
+    useEffect(() => {
+        console.log(`[ModelViewer] Initiating model load from URL: ${url}`);
+    }, [url]);
+
     const { scene } = useGLTF(url);
 
     useEffect(() => {
+        if (scene) {
+            console.log(`[ModelViewer] Model successfully loaded & parsed from URL: ${url}`, {
+                meshNodes: scene.children.length,
+            });
+        }
+    }, [scene, url]);
+
+    useEffect(() => {
+        if (!scene) return;
         scene.traverse((child) => {
             if (child.isMesh) {
-                child.material.wireframe = wireframe;
                 child.castShadow = true;
                 child.receiveShadow = true;
+                if (child.material) {
+                    if (Array.isArray(child.material)) {
+                        child.material.forEach((m) => {
+                            m.wireframe = wireframe;
+                        });
+                    } else {
+                        child.material.wireframe = wireframe;
+                    }
+                }
             }
         });
     }, [scene, wireframe]);
 
-    return (
-        <Center top>
-            <primitive object={scene} />
-        </Center>
-    );
+    // Calculate bounding box, scale normalization, and center alignment
+    const normalizedScene = useMemo(() => {
+        if (!scene) return null;
+        const clone = scene.clone(true);
+        const box = new THREE.Box3().setFromObject(clone);
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const targetSize = 2.4;
+        const scale = maxDim > 0 ? targetSize / maxDim : 1;
+
+        clone.scale.setScalar(scale);
+        // Center horizontally and align base at grid floor (y = 0)
+        clone.position.set(-center.x * scale, -box.min.y * scale, -center.z * scale);
+        return clone;
+    }, [scene]);
+
+    return normalizedScene ? <primitive object={normalizedScene} /> : null;
 }
 
 function CanvasFallback() {
@@ -30,7 +100,7 @@ function CanvasFallback() {
         <Html center>
             <div className="flex flex-col items-center gap-3 bg-slate-900/95 border border-slate-800 px-6 py-4 rounded-2xl backdrop-blur-md shadow-2xl">
                 <Loader2 className="w-8 h-8 text-cyan-400 animate-spin" />
-                <span className="text-xs font-semibold text-slate-200 tracking-wider uppercase">
+                <span className="text-xs font-semibold text-slate-200 tracking-wider uppercase font-mono">
                     Streaming GLB Geometry...
                 </span>
             </div>
@@ -44,6 +114,10 @@ export default function ModelViewer({ modelUrl }) {
     const [wireframe, setWireframe] = useState(false);
     const [autoRotate, setAutoRotate] = useState(true);
     const [isFullscreen, setIsFullscreen] = useState(false);
+
+    useEffect(() => {
+        console.log(`[ModelViewer] modelUrl prop received: ${modelUrl}`);
+    }, [modelUrl]);
 
     const toggleFullscreen = () => {
         if (!containerRef.current) return;
@@ -62,6 +136,18 @@ export default function ModelViewer({ modelUrl }) {
         }
     };
 
+    if (!modelUrl) {
+        return (
+            <div className="w-full h-full min-h-[420px] lg:min-h-[580px] bg-slate-950 rounded-3xl border border-slate-800 flex flex-col items-center justify-center p-6 text-center gap-3">
+                <AlertTriangle className="w-8 h-8 text-amber-400" />
+                <h3 className="text-sm font-semibold text-slate-200">No Model Asset URL</h3>
+                <p className="text-xs text-slate-400 max-w-sm">
+                    A valid model URL is required to render the 3D viewport.
+                </p>
+            </div>
+        );
+    }
+
     return (
         <div
             ref={containerRef}
@@ -76,7 +162,7 @@ export default function ModelViewer({ modelUrl }) {
                 >
                     <color attach="background" args={["#020617"]} />
 
-                    {/* Studio Lights */}
+                    {/* Studio Lighting */}
                     <ambientLight intensity={0.7} />
                     <directionalLight position={[6, 12, 8]} intensity={1.8} castShadow />
                     <directionalLight position={[-8, 6, -6]} intensity={0.6} color="#8b5cf6" />
@@ -96,9 +182,11 @@ export default function ModelViewer({ modelUrl }) {
                         fadeStrength={1.5}
                     />
 
-                    <Suspense fallback={<CanvasFallback />}>
-                        <Model url={modelUrl} wireframe={wireframe} />
-                    </Suspense>
+                    <ViewerErrorBoundary>
+                        <Suspense fallback={<CanvasFallback />}>
+                            <Model url={modelUrl} wireframe={wireframe} />
+                        </Suspense>
+                    </ViewerErrorBoundary>
 
                     <OrbitControls
                         ref={controlsRef}
@@ -108,7 +196,7 @@ export default function ModelViewer({ modelUrl }) {
                         enableZoom={true}
                         enableDamping={true}
                         dampingFactor={0.05}
-                        minDistance={1}
+                        minDistance={0.8}
                         maxDistance={15}
                     />
                 </Canvas>
@@ -161,7 +249,7 @@ export default function ModelViewer({ modelUrl }) {
             {/* Bottom Hint */}
             <div className="absolute bottom-4 left-4 z-20 pointer-events-none hidden sm:flex items-center gap-2.5 text-[11px] text-slate-400 bg-slate-950/80 border border-slate-800/80 px-3 py-1.5 rounded-xl backdrop-blur-md font-mono">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse" />
-                <span>R3F WebGL Canvas • Damped Camera</span>
+                <span>R3F WebGL Canvas • Auto-Centered &amp; Scaled</span>
             </div>
         </div>
     );

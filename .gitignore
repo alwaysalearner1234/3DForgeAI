@@ -57,3 +57,17 @@ backend/generated/*
 !backend/generated/.gitkeep
 backend/processed/*
 !backend/processed/.gitkeep
+
+# Node & Next.js
+node_modules/
+frontend/node_modules/
+.next/
+frontend/.next/
+out/
+build/
+dist/
+
+# Nested git clone
+3DForgeAI/
+walkthrough.md
+
