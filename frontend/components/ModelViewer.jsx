@@ -114,6 +114,11 @@ export default function ModelViewer({ modelUrl }) {
     const [wireframe, setWireframe] = useState(false);
     const [autoRotate, setAutoRotate] = useState(true);
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     useEffect(() => {
         console.log(`[ModelViewer] modelUrl prop received: ${modelUrl}`);
@@ -135,6 +140,15 @@ export default function ModelViewer({ modelUrl }) {
             controlsRef.current.reset();
         }
     };
+
+    if (!mounted) {
+        return (
+            <div className="w-full h-full min-h-[420px] lg:min-h-[580px] bg-slate-950/80 flex flex-col items-center justify-center border border-slate-800 rounded-3xl gap-3">
+                <Loader2 className="w-8 h-8 text-cyan-400 animate-spin" />
+                <span className="text-xs text-slate-400 font-mono">Initializing 3D Canvas...</span>
+            </div>
+        );
+    }
 
     if (!modelUrl) {
         return (
